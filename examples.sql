@@ -3,10 +3,18 @@
   /*
   * Служебные операторы
   *
-  * CREATE TABLE [table] (row type,)  - Создание таблицы
-  * DESCRIBE (DESC) [table]           - Описание таблицы
-  * CONSTRAINT                        - Ограничение
-  * REFERENCES                        - Ссылается
+  * CREATE TABLE [table] (column type [mod] , [column type [mod]])      - Создание таблицы
+  * DESCRIBE (DESC) [table]                                             - Описание таблицы
+  * CONSTRAINT                                                          - Ограничение
+  * REFERENCES table (column)                                           - Ссылается
+  */
+
+  /*
+  * Модификаторы столбцов
+  *
+  * NOT NULL          - не может быть без значения
+  * UNSIGNED          - беззнаковое число ( Только положительные числа )
+  * AUTO_INCREMENT    - Инкремент ( используется в идентификаторах для обеспечения уникальности )
   */
 
   /*
@@ -35,15 +43,13 @@
   * YEAR                                - Год                       ( Timestamp YYYY-MM-DD HH:MI:SS от 1970-01-01 00:00:00 до 2037-12-31 23:59:59 )
   * TIME                                - Время                     ( Year YYYY от 1901 до 2155 )
   *
-  *
-  * NOT NULL                            - не может быть без значения
   */
 
   /*
   * Ограничения
   *
-  * CONSTRAINT pk_person PRIMARY KEY (person_id)      - Ограничение первичного ключа ( primary key constraint )
-  * CONSTRAINT fk_person_id FOREIGN KEY  (person_id)  - Ограничения внешнего ключа ( foreign key constraint )
+  * CONSTRAINT pk_person PRIMARY KEY (person_id)                                    - Ограничение первичного ключа ( primary key constraint )
+  * CONSTRAINT fk_person_id FOREIGN KEY (person_id) REFERENCES person (person_id)   - Ограничения внешнего ключа ( foreign key constraint )
   */
 
 /*************************************************************************************************************************************************************************************/
@@ -108,8 +114,7 @@
       person_id SMALLINT UNSIGNED,
       food VARCHAR(20),
       CONSTRAINT pk_favorite_food PRIMARY KEY (person_id, food),
-      CONSTRAINT fk_person_id FOREIGN KEY  (person_id)
-      REFERENCES person (person_id)
+      CONSTRAINT fk_person_id FOREIGN KEY (person_id) REFERENCES person (person_id)
     );
 
 
@@ -274,9 +279,9 @@
 /* Псевдонимы столбцов ( указываются через пробел после имён столбцов ) */
 
   SELECT emp_id,
-    'ACTIVE' status,
-    emp_id * 3.14159 empid_x_pi,
-    UPPER(lname) last_name_upper
+  'ACTIVE'          status,
+  emp_id * 3.14159  empid_x_pi,
+  UPPER(lname)      last_name_upper
   FROM employee;
 
 
@@ -292,7 +297,7 @@
 
 
 
-/* Выборка из таблицы формируемые подзапросом */
+/* Выборка из таблицы формируемых подзапросом */
 
   SELECT e.emp_id, e.fname, e.lname
   FROM (SELECT emp_id, fname, lname, start_date, title
@@ -367,7 +372,7 @@
 
 
 
--- БЛОКИ GROUP BY И HAVING
+-- БЛОК ORDER BY
 
 
 
@@ -468,6 +473,24 @@
 /*********************************************************************************************/
 /*********************************************************************************************/
 
+/*
+* Условие фильтрации это одно, или более выражений соединённых операторами
+*
+* ВЫРАЖЕНИЯ
+*
+* - Число
+* - Столбец таблицы или представления
+* - Строковый литерал
+* - Встроенная функция, например CONCAT('Learning', ' ', 'sql');
+* - Подзапрос
+* - Список выражений, например ('Teller', 'Head Teller', 'OperationsManager')
+*
+* ОПЕРАТОРЫ
+*
+* - Операторы сравнения, такие как =, !=, <, >, <>, LIKE, IN и BETWEEN
+* - Арифметические операторы, такие как +, , * и /
+*/
+
 
 
 /* Скобки и логика. Выбрать операционистов или сотрудников принятых до 2003 года, работающих до сих пор */
@@ -478,13 +501,112 @@
 
 
 
+/* Скобки и логика. Выбрать НЕ операционистов или сотрудников принятых НЕ до 2003 года, работающих до сих пор */
+
+  SELECT * FROM employee
+  WHERE end_date IS NULL
+  AND NOT (title = 'Teller' OR start_date < '2003-01-01');
+
+
+
+/* Условия равенства */
+
+  SELECT pt.name product_type, p.name product
+  FROM product p INNER JOIN product_type pt
+  ON p.product_type_cd = pt.product_type_cd
+  WHERE pt.name = 'Customer Accounts';
+
+
+
+/* Удалить счета закрытые в 1999 году */
+
+  DELETE FROM account
+  WHERE status = 'CLOSED' AND YEAR(close_date) = 1999;
+
+
+
+/* Условия вхождения в диапазон */
+
+  SELECT emp_id, fname, lname start_date
+  FROM employee
+  WHERE start_date < '2003-01-01'
+
+
+
+/* Условия вхождения в диапазон с нижней границей */
+
+  SELECT emp_id, fname, lname, start_date
+  FROM employee
+  WHERE start_date < '2003-01-01'
+  AND start_date >= '2001-01-01';
+
+
+
+/* Условия вхождения в диапазон оператор BETWEEN (между) */
+
+  SELECT emp_id, fname, lname, start_date
+  FROM employee
+  WHERE start_date BETWEEN '2001-01-01' AND '2003-01-01';
+
+
+
+/* Условия вхождения в числовой диапазон */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE avail_balance BETWEEN 3000 AND 5000;
+
+
+
+/* Условия вхождения в строковый диапазон (необходимо знать порядок символов в наборе символов (collation)) */
+
+  SELECT cust_id, fed_id
+  FROM customer
+  WHERE cust_type_cd = 'I'
+  AND fed_id BETWEEN '500-00-0000' AND '999-99-9999';
+
+
+
+/* Условия челенства */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE product_cd IN ('CHK','SAV','CD','MM');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 
 /**************************************************************************************/
-/**************************  Завершил на странице 74  *********************************/
+/**************************  Завершил на странице 82  *********************************/
 /**************************************************************************************/
 
 
