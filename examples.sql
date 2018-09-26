@@ -774,6 +774,124 @@
    USING(dept_id);
 
 
+/* Еще один пример запроса с соединением двух таблиц */
+
+  SELECT a.account_id, c.fed_id
+  FROM account a INNER JOIN customer c
+  ON a.cust_id = c.cust_id
+  WHERE c.cust_type_cd = 'B';
+
+
+
+/* Добавление имени операциониста открывшего счёт ( Соединение трёх таблиц ) */
+
+  SELECT a.account_id, c.fed_id, e.fname, e.lname
+  FROM account a
+
+  INNER JOIN customer c
+  ON a.cust_id = c.cust_id
+
+  INNER JOIN employee e
+  ON a.open_emp_id = e.emp_id
+
+  WHERE c.cust_type_cd = 'B';
+
+
+
+/* Если изменить порядок присоединяемых таблиц результат не изменится */
+
+  SELECT a.account_id, c.fed_id, e.fname, e.lname
+  FROM account a
+
+  INNER JOIN employee e
+  ON a.open_emp_id = e.emp_id
+
+  INNER JOIN customer c
+  ON a.cust_id = c.cust_id
+
+  WHERE c.cust_type_cd = 'B';
+
+
+
+/* Выбор всех счетов, открытых опытными операционистами, в настоящее время работающими в отделении Woburn */
+/* Вся фильтрация происходит засчёт внутреннего объединения таблиц, формируемых подзапросами*/
+
+  SELECT *
+  FROM account a
+
+  INNER JOIN (
+    SELECT emp_id, assigned_branch_id
+    FROM employee
+    WHERE start_date <= '2003-01-01'
+    AND(title = 'Teller' OR title = 'Head Teller')
+  ) e
+  ON a.open_emp_id = e.emp_id
+
+  INNER JOIN (
+    SELECT branch_id
+    FROM branch
+    WHERE name = 'Woburn Branch'
+  ) b
+  ON e.assigned_branch_id = b.branch_id;
+
+
+
+/* Повторное использование таблицы. */
+/* Извлечь сотрудника открвшего каждый текущий счет, в каком отделении это произошло и к какому отделению приписан в настоящее время сотрудник */
+
+  SELECT a.account_id, e.emp_id, b_a.name open_branch, b_e.name emp_branch
+  FROM account a
+
+  INNER JOIN branch b_a
+  ON a.open_branch_id = b_a.branch_id
+
+  INNER JOIN employee e
+  ON a.open_emp_id = e.emp_id
+
+  INNER JOIN branch b_e
+  ON e.assigned_branch_id = b_e.branch_id
+
+  WHERE a.product_cd = 'CHK';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /**************************************************************************************/
