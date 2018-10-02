@@ -855,11 +855,73 @@
 
 
 
+/* Рекурсивное соединение таблицы с самой собой по ( self referencing foreign key ) [ Псевдонимы таблиц обязательны ] */
+/* Вывести список сотрудников с указанием их начальников */
+
+  SELECT e.fname, e.lname, e_mgr.fname mgr_fname, e_mgr.lname mgr_lname
+  FROM employee e INNER JOIN employee e_mgr
+  ON e.superior_emp_id = e_mgr.emp_id;
+
+
+
+/* Рекурсивное неэквисоединение, то есть соединение таблицы с сомой собой не по условию равенства  */
+/* Составить поры всех сотрудников для шахматного турнира */
+
+  SELECT e1.fname, e1.fname, 'VS' vs, e2.fname, e2.lname
+  FROM employee e1 INNER JOIN employee e2
+  ON e1.emp_id != e2.emp_id
+  WHERE e1.title = 'Teller' AND e2.title = 'Teller';
+
+
+
+/* хитрость для избежания обратных пар сотрудников с результатирующем наборе */
+
+  SELECT e1.fname, e1.fname, 'VS' vs, e2.fname, e2.lname
+  FROM employee e1 INNER JOIN employee e2
+  ON e1.emp_id > e2.emp_id
+  WHERE e1.title = 'Teller' AND e2.title = 'Teller';
+
+
+
+-- Упражнения по внутренним соединениям
+
+
+
+/*  */
+
+  SELECT e.emp_id, e.fname, e.lname, b.name
+  FROM employee e INNER JOIN branch b
+  ON e.assigned_branch_id = b.branch_id;
+
+
+
+/* Напишите запрос, по которому для каждого клиента физического
+лица (customer.cust_type_cd = 'I') возвращаются ID счета, федеральный ID
+(customer.fed_id) и тип созданного счета (product.name). */
+
+  SELECT a.account_id, c.fed_id, p.name
+  FROM account a
+
+  INNER JOIN customer c
+  ON a.cust_id = c.cust_id
+
+  INNER JOIN product p
+  ON a.product_cd = p.product_cd;
+
+
+
+/* Создайте запрос для выбора всех сотрудников, начальник которых приписан к другому отделу. Извлеките ID, имя и фамилию сотрудника. */
+
+  SELECT e1.emp_id, e1.fname, e1.lname
+  FROM employee e1 INNER JOIN employee e2
+  ON e1.superior_emp_id = e2.emp_id
+  WHERE e1.dept_id != e2.dept_id;
+
 
 
 
 /***************************************************************************************/
-/**************************  Завершил на странице 103  *********************************/
+/**************************  Завершил на странице 109  *********************************/
 /***************************************************************************************/
 
 
