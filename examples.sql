@@ -1703,57 +1703,383 @@ A except B - { L M N O }
 
 
 
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************                                                     *******************/
+/*********************                                                     *******************/
+/*********************                   7. ПОДЗАПРОСЫ                     *******************/
+/*********************                                                     *******************/
+/*********************                                                     *******************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+
+
+
+/* Простой пример выражения с подзапросом */
+/* В случае если подзапрос возвращает одно значение его можно использовать в условии равенства */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE account_id = (SELECT MAX(account_id) FROM account);
+
+
+
+/* Применение скалярного подзапроса в условии неравенства */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE open_emp_id <> (
+    SELECT e.emp_id
+    FROM employee e INNER JOIN branch b
+    ON e.assigned_branch_id = b.branch_id
+    WHERE e.title = 'Head Teller' AND b.city = 'Woburn'
+  );
+
+
+
+/* Если подзапрос, используемый в условии равенства будет возвращать более одной строки, генерируется ошибка */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE open_emp_id <> (
+    SELECT e.emp_id
+    FROM employee e INNER JOIN branch b
+    ON e.assigned_branch_id = b.branch_id
+    WHERE e.title = 'Teller' AND b.city = 'Woburn'
+  );
+
+
+
+/* В случае если необходимо стравнить с набором значений можно использовать оператор IN (NOT IN) */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE open_emp_id NOT IN (
+    SELECT e.emp_id
+    FROM employee e INNER JOIN branch b
+    ON e.assigned_branch_id = b.branch_id
+    WHERE e.title = 'Teller' AND b.city = 'Woburn'
+  );
+
+
+
+/* Следующий запрос использует оператор in и подзапрос в правой части условия фильтрации для того, чтобы выявить руководящий состав банка */
+
+  SELECT emp_id, fname, lname, title
+  FROM employee
+  WHERE emp_id IN (
+    SELECT superior_emp_id
+    FROM employee
+  );
+
+
+/* Пример использования оператора NOT IN */
+
+  SELECT emp_id, fname, lname, title
+  FROM employee
+  WHERE emp_id NOT IN (
+    SELECT superior_emp_id
+    FROM employee
+    WHERE superior_emp_id IS NOT NULL
+  );
+
+
+
+/* Оператор ALL используется вместе с одним из операторов сравнения следующий запрос находит всех сотрудников,
+   ID которых не равен ни одному из ID руководителей */
+
+  SELECT emp_id, fname, lname, title
+  FROM employee
+  WHERE emp_id <> ALL (
+    SELECT superior_emp_id
+    FROM employee
+    WHERE superior_emp_id != NULL
+  );
+
+
+
+/* Бывают случаи, когда оператор all чуть более естественен. Следующий пример использует all для поиска счетов,
+   доступный остаток которых меньше, чем на любом из счетов Фрэнка Такера (Frank Tucker): */
+
+  SELECT account_id, cust_id, product_cd, avail_balance
+  FROM account
+  WHERE avail_balance < ALL (
+    SELECT a.avail_balance
+    FROM account a INNER JOIN individual i
+    ON a.cust_id = i.cust_id
+    WHERE i.fname = 'Frank' AND i.lname = 'Tucker'
+  );
+
+
+
+/* Tребуется найти все счета, доступный остаток которых больше, чем на любом из счетов Фрэнка Такера ( Оператор ANY, любой ) */
+
+  SELECT account_id, cust_id, product_cd, avail_balance
+  FROM account
+  WHERE avail_balance > ANY (
+    SELECT a.avail_balance
+    FROM account a INNER JOIN individual i
+    ON a.cust_id = i.cust_id
+    WHERE i.fname = 'Frank' AND i.lname = 'Tucker'
+  );
+
+
+
+/* пример использования нескольких подзапросов, возвращающих один столбец */
+
+  SELECT account_id, product_cd, cust_id
+  FROM account
+  WHERE open_branch_id = (
+    SELECT branch_id
+    FROM branch
+    WHERE name = 'Woburn Branch'
+  )
+  AND open_emp_id IN (
+    SELECT emp_id
+    FROM employee
+    WHERE title = 'Teller' OR title = 'Head Teller'
+  );
+
+
+
+/* В таблице employee есть информация об отделении, в котором числится каждый сотрудник, поэтому те же результаты можно получить путем сравнения
+   столбцов account.open_branch_id и account.open_emp_id с единственным подзапросом к таблицам employee и branch. Для этого в условии фильтрации
+   следует указать в круглых скобках имена обоих столбцов таблицы account в том же порядке, в каком они возвращаются подзапросом  */
+
+  SELECT account_id, product_cd, cust_id
+  FROM account
+  WHERE (open_branch_id, open_emp_id) IN (
+    SELECT b.branch_id, e.emp_id
+    FROM branch b INNER JOIN employee e
+    ON b.branch_id = e.assigned_branch_id
+    WHERE b.name = 'Woburn Branch'
+    AND (e.title = 'Teller' OR e.title = 'Head Teller')
+  );
+
+
+
+/* следующий запрос использует связанный подзапрос для подсчета количества счетов у каждого клиента. Затем основной запрос
+   выбирает тех клиентов, у которых ровно по два счета */
+
+  SELECT c.cust_id, c.cust_type_cd, c.city
+  FROM customer c
+  WHERE 2 = (
+    SELECT COUNT(*)
+    FROM account a
+    WHERE a.cust_id = c.cust_id
+  );
+
+
+
+/* Связанный запрос используемый в условии вхождения в диапазон */
+
+  SELECT c.cust_id, c.cust_type_cd, c.city
+  FROM customer c
+  WHERE (
+    SELECT SUM(a.avail_balance)
+    FROM account a
+    WHERE a.cust_id = c.cust_id
+  ) BETWEEN 5000 AND 10000;
+
+
+
+/* Оператор exists применяется, если требуется показать, что связь есть, а количество связей при этом не имеет значения.
+   Например, следующий запрос находит все счета, для которых транзакция была выполнена в определенный день, без учета количества транзакций */
+
+  SELECT a.account_id, a.product_cd, a.cust_id, a.avail_balance
+  FROM account a
+  WHERE EXISTS (
+    SELECT 1
+    FROM transaction t
+    WHERE t.account_id = a.account_id
+    AND t.txn_date = '2005-01-22'
+  );
+
+
+
+/* Для поиска подзапросов, не возвращающих строки, можно использовать и оператор not exists */
+/* Этот запрос выявляет всех клиентов, ID которых нет в таблице business, – окольный путь для поиска всех клиентов физических лиц. */
+
+  SELECT a.account_id, a.product_cd, a.cust_id
+  FROM account a
+  WHERE NOT EXISTS(
+    SELECT 1
+    FROM business b
+    WHERE b.cust_id = a.cust_id
+  );
+
+
+
+/* Изменение и другие манипуляции с данными с помошью связанных запросов */
+/* Вот пример связанного подзапроса, с помощью которого изменяется столбец last_activity_date таблицы account: */
+
+  UPDATE account a
+  SET a.last_activity_date = (
+    SELECT MAX(t.txn_date)
+    FROM transaction t
+    WHERE t.account_id = a.account_id
+  );
+
+
+
+/* В предидущем примере обновляются все строки, но в некоторых счётах нет не одной транзакции, это приводит к записи значения NULL в поля таких счётов */
+/* Вариант запроса с проверкой  */
+
+  UPDATE account a
+  SET a.last_activity_date = (
+    SELECT MAX(t.txn_date)
+    FROM transaction t
+    WHERE t.account_id = a.account_id
+  )
+  WHERE EXISTS(
+    SELECT 1
+    FROM transaction t
+    WHERE t.account_id = a.account_id
+  )
+
+
+
+/* Использование связанных запросов в выражениях удаления записей */
+/* Выражение, которое удаляет из таблицы department данные, не имеющие дочерних строк в таблице employee */
+
+  DELETE FROM department
+  WHERE NOT EXISTS (
+    SELECT *
+    FROM employee
+    WHERE employee.dept_id = department.dept_id
+  );
+
+
+
+-- В выражениях DELETE нельзя использовать псевдонимы таблиц !!!
+
+
+
+/* использование подзапросов в качестве таблиц – один из самых мощных инструментов, доступных при написании запросов. Вот простой пример */
+
+  SELECT d.dept_id, d.name, e_cnt.how_many num_employees
+  FROM department d INNER JOIN (
+    SELECT dept_id, COUNT(*) how_many
+    FROM employee
+    GROUP BY dept_id
+  ) e_cnt
+  ON d.dept_id = e_cnt.dept_id;
+
+
+/* С помощью подзапросов можно как резюмировать имеющиеся данные, так и формировать данные, которых в БД нет ни в какой форме */
+/* На пример нужно разделить всех клиентов на мелкую рыбу средняк и большую рыбу */
+
+  SELECT 'Small fry' name, 0 low_limit, 4999.99 high_limit
+  UNION ALL
+  SELECT 'Average Joes' name, 5000 low_limit, 9999.99 high_limit
+  UNION ALL
+  SELECT 'Heavy Hitters' name, 10000 low_limit, 9999999.99 high_limit;
+
+
+
+/* Теперь можно использовать этот результатирующий набор в другом запросе  ( В БУДУЮЩЕМ НУЖНО ИЗУЧИТЬ ПОДРОБНЕЕ ) */
+
+  SELECT groups.name, COUNT(*) num_customers
+  FROM (
+    SELECT SUM(a.avail_balance) cust_balance
+    FROM account a INNER JOIN product p
+    ON a.product_cd = p.product_cd
+    WHERE p.product_type_cd = 'ACCOUNT'
+    GROUP BY a.cust_id
+    ) cust_rollup
+
+    INNER JOIN (
+      SELECT 'Small Fry' name, 0 low_limit, 4999.99 high_limit
+      UNION ALL
+      SELECT 'Average Joes' name, 5000 low_limit, 9999.99 high_limit
+      UNION ALL
+      SELECT 'Heavy Hitters' name, 10000 low_limit, 9999999.99 high_limit
+    ) groups
+
+    ON cust_rollup.cust_balance
+    BETWEEN groups.low_limit AND groups.high_limit
+  GROUP BY groups.name
+
+
+
+/* Подзапросы орентированные на задачи */
+
+  SELECT p.name product, b.name branch, CONCAT(e.fname, ' ', e.lname) name, SUM(a.avail_balance) tot_depostis
+  FROM account a
+
+  INNER JOIN employee e
+  ON a.open_emp_id = e.emp_id
+
+  INNER JOIN branch b
+  ON a.open_branch_id = b.branch_id
+
+  INNER JOIN product p
+  ON a.product_cd = p.product_cd
+
+  WHERE p.product_type_cd = 'ACCOUNT'
+  GROUP BY p.name, b.name, e.fname, e.lname;
+
+
+
+/* задачу по формированию групп можно было бы выделить в подзапрос, а затем для получения нужного
+   результата соединить остальные три таблицы с таблицей, сгенерированной подзапросом.
+   ( в запросе формируются группы с айдишниками вместо имён отдлов, сотрудников ) */
+
+  SELECT product_cd, open_branch_id branch_id, open_emp_id emp_id,
+    SUM(avail_balance) tot_deposits
+  FROM account
+  GROUP BY product_cd, open_branch_id, open_emp_id;
+
+
+
+/* Финальный запрос с группировкой данных в подзапросе */
+
+  SELECT p.name product, b.name branch, CONCAT(e.fname, ' ', e.lname) name, account_groups.tot_deposits
+  FROM (
+    SELECT product_cd, open_branch_id branch_id, open_emp_id emp_id, SUM(avail_balance) tot_deposits
+    FROM account
+    GROUP BY product_cd, open_branch_id, open_emp_id
+  ) account_groups
+
+  INNER JOIN employee e ON e.emp_id = account_groups.emp_id
+  INNER JOIN branch b ON b.branch_id = account_groups.branch_id
+  INNER JOIN product p ON p.product_cd = account_groups.product_cd
+
+  WHERE p.product_type_cd = 'ACCOUNT';
+
+
+
+/* Подзапросы в условиях фильтрации
+   следующий запрос использует блок having для поиска сотрудника, открывшего наибольшее количество счетов: */
+
+  SELECT open_emp_id, COUNT(*) how_many
+  FROM account
+  GROUP BY open_emp_id
+  HAVING COUNT(*) = (
+    SELECT MAX(emp_cnt.how_many)
+    FROM (
+      SELECT COUNT(*) how_many
+      FROM account
+      GROUP BY open_emp_id
+    ) emp_cnt
+  );
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+-- Подзапросы как генераторы выражений
 
 
 
@@ -1763,7 +2089,7 @@ A except B - { L M N O }
 
 
 /***************************************************************************************/
-/**************************  Завершил на странице 154  *********************************/
+/**************************  Завершил на странице 190  *********************************/
 /***************************************************************************************/
 
 
