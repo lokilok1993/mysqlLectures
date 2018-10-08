@@ -2076,12 +2076,185 @@ A except B - { L M N O }
 
 
 
+/* Подзапросы как генераторы прошлый пример, только набор собирается по столбцу  */
+
+  SELECT (
+    SELECT p.name FROM product p
+    WHERE p.product_cd = a.product_cd
+    AND p.product_type_cd = 'ACCOUNT'
+  ) product, (
+    SELECT b.name FROM branch b
+    WHERE b.branch_id = a.open_branch_id
+  ) branch, (
+    SELECT CONCAT(e.fname, ' ', e.lname)
+    FROM employee e
+    WHERE e.emp_id = a.open_emp_id
+  ) name,
+  SUM(a.avail_balance) tot_deposits
+  FROM account a
+  GROUP BY a.product_cd, a.open_branch_id, a.open_emp_id;
 
 
 
--- Подзапросы как генераторы выражений
+/* Тут прошлый запрос используется в блоке FROM чтобы можно было отсеять резальтатирующий набор на предмет NULL в поле продукт */
+
+  SELECT all_prods.product, all_prods.branch, all_prods.name, all_prods.tot_deposits
+  FROM (
+      SELECT (
+        SELECT p.name FROM product p
+        WHERE p.product_cd = a.product_cd
+        AND p.product_type_cd = 'ACCOUNT'
+      ) product, (
+        SELECT b.name FROM branch b
+        WHERE b.branch_id = a.open_branch_id
+      ) branch, (
+        SELECT CONCAT(e.fname, ' ', e.lname)
+        FROM employee e
+        WHERE e.emp_id = a.open_emp_id
+      ) name,
+      SUM(a.avail_balance) tot_deposits
+      FROM account a
+      GROUP BY a.product_cd, a.open_branch_id, a.open_emp_id
+  ) all_prods
+  WHERE all_prods.product IS NOT NULL;
 
 
+
+/* Скалярные запросы в выражении группировки */
+
+  SELECT emp.emp_id, CONCAT(emp.fname, ' ', emp.lname) emp_name,(
+      SELECT CONCAT(boss.fname, ' ', boss.lname)
+      FROM employee boss
+      WHERE boss.emp_id = emp.superior_emp_id
+    ) boss_name
+    FROM employee emp
+    WHERE emp.superior_emp_id IS NOT NULL
+    ORDER BY (
+      SELECT boss.lname
+      FROM employee boss
+      WHERE boss.emp_id = emp.superior_emp_id
+    ), emp.lname;
+
+
+
+/* Скалярные несвязанные запросы в выражениях INSERT
+   (в частности ля того чтобы запролнить все поля с внешними ключами к предоставленным данным) */
+
+  INSERT INTO account (
+    account_id, product_cd, cust_id, open_date, last_activity_date,
+    status, open_branch_id, open_emp_id, avail_balance, pending_balance
+  )
+  VALUES (
+    NULL,
+    ( SELECT product_cd FROM product WHERE name = 'savings account' ),
+    ( SELECT cust_id FROM customer WHERE fed_id = '555-55-5555' ),
+    '2005-01-25', '2005-01-25', 'ACTIVE',
+    ( SELECT branch_id FROM branch WHERE name = 'Quincy Branch' ),
+    ( SELECT emp_id FROM employee WHERE lname = 'Portman' AND fname = 'Frank' ),
+    0,0
+  );
+
+
+
+-- Упражнения
+
+
+
+/* Создайте запрос к таблице account, использующий условие фильтрации с несвязанным подзапросом к
+   таблице product для поиска всех кредитных счетов (product.product_type_cd = 'LOAN'). Должны быть
+   выбраны ID счета, код счета, ID клиента и доступный остаток. */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account
+  WHERE product_cd IN (
+    SELECT product_cd
+    FROM product
+    WHERE product_type_cd = 'LOAN'
+  );
+
+
+
+/* Переработайте запрос из упражнения 9.1, используя связанный подзапрос
+   к таблице product для получения того же результата. */
+
+  SELECT account_id, product_cd, cust_id, avail_balance
+  FROM account a
+  WHERE EXISTS(
+    SELECT 1
+    FROM product p
+    WHERE p.product_type_cd = 'LOAN' AND p.product_cd = a.product_cd
+  );
+
+
+
+/* Соедините следующий запрос с таблицей employee, чтобы показать уровень квалификации каждого сотрудника:
+   Дайте подзапросу псевдоним levels (уровни) и включите ID сотрудника, имя, фамилию и квалификацию (levels.name).
+   (Совет: в условии соединения определяйте диапазон, в который попадает столбец employee.start_date, с помощью условия неравенства.) */
+
+  SELECT e.emp_id, e.fname, e.lname, levels.name
+  FROM (
+    SELECT 'trainee' name, '2004-01-01' start_dt, '2005-12-31' end_dt
+    UNION ALL
+    SELECT 'worker' name, '2002-01-01' start_dt, '2003-12-31' end_dt
+    UNION ALL
+    SELECT 'mentor' name, '2000-01-01' start_dt, '2001-12-31' end_dt
+  ) levels
+  INNER JOIN employee e
+  ON e.start_date BETWEEN levels.start_dt AND levels.end_dt;
+
+
+
+/* Создайте запрос к таблице employee для получения ID, имени и фамилии сотрудника
+   вместе с названиями отдела и отделения, к которым он приписан. Не используйте соединение таблиц. */
+
+  SELECT e.emp_id, e.fname, e.lname, (
+    SELECT d.name
+    FROM department d
+    WHERE d.dept_id = e.dept_id
+  ) dep_name, (
+    SELECT b.name
+    FROM branch b
+    WHERE b.branch_id = e.assigned_branch_id
+  ) branch_name
+  FROM employee e;
+
+
+
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************                                                     *******************/
+/*********************                                                     *******************/
+/*********************             7. СОЕДЕНЕНИЯ ПОДРОБНЕЕ                 *******************/
+/*********************                                                     *******************/
+/*********************                                                     *******************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+/*********************************************************************************************/
+
+
+
+/* Если соединить account с business не все аккаунты войдут в результатирующий набор, по тому что не каждый клиент бизнесмен */
+
+  SELECT a.account_id, b.cust_id, b.name
+  FROM account a INNER JOIN business b
+  ON a.cust_id = b.cust_id;
+
+
+
+/* Если необходимо выбрать все аккаунты и если есть название предприятия необходимо использовать внешнее соединение */
+
+  SELECT a.account_id, b.cust_id, b.name
+  FROM account a LEFT OUTER JOIN business b
+  ON a.cust_id = b.cust_id;
 
 
 
